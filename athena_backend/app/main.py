@@ -9,10 +9,10 @@ app = FastAPI()
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 def hash_password(password):
-    return pwd_context.hash(password)
+    return pwd_context.hash(password[:72])
 
 def verify_password(plain, hashed):
-    return pwd_context.verify(plain, hashed)
+    return pwd_context.verify(plain[:72], hashed)
 
 
 # CORS
@@ -79,8 +79,7 @@ def login(user: User):
 @app.post("/sos")
 def receive_sos(data: SOSRequest):
 
-    # 🔐 validar usuário
-    if not any(u.username == data.username for u in users):
+    if not any(u["username"] == data.username for u in users):
         return {"message": "User not authenticated"}
 
     alert = {
@@ -107,9 +106,8 @@ def receive_sos(data: SOSRequest):
         "latitude": data.latitude,
         "longitude": data.longitude
     })
-    if not any(u["username"] == data.username for u in users):
-      return {"message": "User not authenticated"}
-   
+
+    return {"message": "SOS sent successfully"}
 
 @app.get("/alerts")
 def get_alerts():
