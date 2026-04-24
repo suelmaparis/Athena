@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Athena SOS</title>
+
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #0f172a;
+      color: white;
+      text-align: center;
+    }
+
+    h1 {
+      margin-top: 20px;
+    }
+
+    .container {
+      padding: 20px;
+    }
+
+    #map {
+      height: 250px;
+      margin-top: 20px;
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .sos-button {
+      background: red;
+      color: white;
+      border: none;
+      border-radius: 50%;
+      width: 150px;
+      height: 150px;
+      font-size: 20px;
+      font-weight: bold;
+      margin-top: 30px;
+      box-shadow: 0 0 30px rgba(255,0,0,0.6);
+      cursor: pointer;
+    }
+
+    .sos-button:active {
+      transform: scale(0.95);
+    }
+
+    #status {
+      margin-top: 15px;
+      font-size: 16px;
+    }
+
+    .alerts {
+      margin-top: 30px;
+      text-align: left;
+      background: #1e293b;
+      padding: 15px;
+      border-radius: 10px;
+    }
+
+    .alerts h2 {
+      margin-top: 0;
+    }
+
+    .alerts li {
+      margin-bottom: 5px;
+    }
+  </style>
+</head>
+
+<body>
+  <h1>🚨 Athena</h1>
+
+  <div class="container">
+    <button class="sos-button" onclick="sendSOS()">SOS</button>
+
+    <p id="status"></p>
+
+    <div id="map"></div>
+
+    <div class="alerts">
+      <h2>Alertas enviados</h2>
+      <ul id="alerts"></ul>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+  <script>
+    let map;
+    let marker;
+
+    async function sendSOS() {
+      const status = document.getElementById("status");
+      status.innerText = "A obter localização...";
+
+      navigator.geolocation.getCurrentPosition(async (position) => {
+        const lat = position.coords.latitude;
+        const lon = position.coords.longitude;
+
+        if (!map) {
+          map = L.map('map').setView([lat, lon], 13);
+
+          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: 'Map data © OpenStreetMap'
+          }).addTo(map);
+        }
+
+        if (marker) {
+          marker.setLatLng([lat, lon]);
+        } else {
+          marker = L.marker([lat, lon]).addTo(map);
+        }
+
+        status.innerText = "A enviar SOS...";
+
+        try {
+          await fetch("http://localhost:8000/sos", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              latitude: lat,
+              longitude: lon
+            })
+          });
+
+          status.innerText = "SOS enviado 🚨";
+          loadAlerts();
+
+        } catch (error) {
+          status.innerText = "Erro ao enviar";
+        }
+
+      }, () => {
+        status.innerText = "Permissão negada";
+      });
+    }
+
+    async function loadAlerts() {
+      const response = await fetch("http://localhost:8000/alerts");
+      const data = await response.json();
+
+      const list = document.getElementById("alerts");
+      list.innerHTML = "";
+
+      data.forEach(alert => {
+        const item = document.createElement("li");
+        item.innerText = `📍 ${alert.latitude.toFixed(4)}, ${alert.longitude.toFixed(4)}`;
+        list.appendChild(item);
+      });
+    }
+
+    window.onload = loadAlerts;
+  </script>
+</body>
+</html>

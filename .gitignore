@@ -1,0 +1,18 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+
+# Mac
+.DS_Store
+
+# Node / logs
+node_modules/
+*.log
+
+# VS Code
+.vscode/
+
+# Flutter (caso volte a usar)
+.build/
+.dart_tool/
