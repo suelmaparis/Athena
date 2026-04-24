@@ -8,5 +8,3 @@ class Incident(BaseModel):
     description: str
     timestamp: datetime = datetime.utcnow()
 
-class User(BaseModel):
-    username: str
