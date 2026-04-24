@@ -2,8 +2,18 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import math
+from passlib.context import CryptContext
 
 app = FastAPI()
+
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+def hash_password(password):
+    return pwd_context.hash(password)
+
+def verify_password(plain, hashed):
+    return pwd_context.verify(plain, hashed)
+
 
 # CORS
 app.add_middleware(
@@ -33,6 +43,7 @@ def is_in_danger_zone(lat, lon):
 # Models
 class User(BaseModel):
     username: str
+    password: str
 
 class SOSRequest(BaseModel):
     latitude: float
@@ -42,18 +53,26 @@ class SOSRequest(BaseModel):
 
 @app.post("/register")
 def register(user: User):
-    for u in users:
-        if u.username == user.username:
-            return {"message": "User already exists"}
 
-    users.append(user)
-    return {"message": "User created"}
+    if any(u["username"] == user.username for u in users):
+        return {"message": "User already exists"}
+
+    users.append({
+        "username": user.username,
+        "password": hash_password(user.password)
+    })
+
+    return {"message": "User created successfully"}
 
 @app.post("/login")
 def login(user: User):
+
     for u in users:
-        if u.username == user.username:
-            return {"message": "Login successful"}
+        if u["username"] == user.username:
+            if verify_password(user.password, u["password"]):
+                return {"message": "Login successful"}
+            else:
+                return {"message": "Wrong password"}
 
     return {"message": "User not found"}
 
@@ -88,8 +107,9 @@ def receive_sos(data: SOSRequest):
         "latitude": data.latitude,
         "longitude": data.longitude
     })
-
-    return {"message": "SOS sent successfully"}
+    if not any(u["username"] == data.username for u in users):
+      return {"message": "User not authenticated"}
+   
 
 @app.get("/alerts")
 def get_alerts():
