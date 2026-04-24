@@ -73,7 +73,11 @@
 
 <body>
   <h1>🚨 Athena</h1>
-
+ 
+  <input id="username" placeholder="Enter your name" />
+  
+  <button onclick="register()">Sign up</button>
+  <button onclick="login()">Login</button>
   <div class="container">
     <button class="sos-button" onclick="sendSOS()">SOS</button>
 
@@ -92,31 +96,52 @@
   <script>
     let map;
     let marker;
-
+  
+    // 🔐 user session
+    let currentUser = null;
+  
+    // 🚀 SEND SOS
     async function sendSOS() {
       const status = document.getElementById("status");
-      status.innerText = "A obter localização...";
-
+  
+      // 🔥 require login
+      if (!currentUser) {
+        status.innerText = "Please login first";
+        return;
+      }
+  
+      status.innerText = "Getting location...";
+  
       navigator.geolocation.getCurrentPosition(async (position) => {
         const lat = position.coords.latitude;
         const lon = position.coords.longitude;
-
+  
+        // 🗺️ create map
         if (!map) {
           map = L.map('map').setView([lat, lon], 13);
-
+  
           L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: 'Map data © OpenStreetMap'
           }).addTo(map);
+  
+          // ⚠️ danger zone
+          L.circle([40.7128, -74.0060], {
+            color: 'red',
+            fillColor: '#f03',
+            fillOpacity: 0.3,
+            radius: 1000
+          }).addTo(map);
         }
-
+  
+        // 📍 marker
         if (marker) {
           marker.setLatLng([lat, lon]);
         } else {
           marker = L.marker([lat, lon]).addTo(map);
         }
-
-        status.innerText = "A enviar SOS...";
-
+  
+        status.innerText = "Sending SOS...";
+  
         try {
           await fetch("http://localhost:8000/sos", {
             method: "POST",
@@ -125,36 +150,90 @@
             },
             body: JSON.stringify({
               latitude: lat,
-              longitude: lon
+              longitude: lon,
+              username: currentUser
             })
           });
-
-          status.innerText = "SOS enviado 🚨";
+  
+          status.innerText = "SOS sent 🚨";
+  
           loadAlerts();
-
+  
         } catch (error) {
-          status.innerText = "Erro ao enviar";
+          status.innerText = "Error sending request";
+          console.error(error);
         }
-
+  
       }, () => {
-        status.innerText = "Permissão negada";
+        status.innerText = "Location permission denied";
       });
     }
-
+  
+    // 📦 LOAD ALERTS
     async function loadAlerts() {
-      const response = await fetch("http://localhost:8000/alerts");
-      const data = await response.json();
-
-      const list = document.getElementById("alerts");
-      list.innerHTML = "";
-
-      data.forEach(alert => {
-        const item = document.createElement("li");
-        item.innerText = `📍 ${alert.latitude.toFixed(4)}, ${alert.longitude.toFixed(4)}`;
-        list.appendChild(item);
-      });
+      try {
+        const response = await fetch("http://localhost:8000/alerts");
+        const data = await response.json();
+  
+        const list = document.getElementById("alerts");
+        list.innerHTML = "";
+  
+        data.forEach(item => {
+          const li = document.createElement("li");
+          li.innerText = `📍 ${item.latitude.toFixed(4)}, ${item.longitude.toFixed(4)} - ${item.user}`;
+          list.appendChild(li);
+        });
+  
+      } catch (error) {
+        console.error("Error loading alerts:", error);
+      }
     }
-
+  
+    // 📝 REGISTER
+    async function register() {
+      const username = document.getElementById("username").value;
+  
+      if (!username) {
+        alert("Enter a username");
+        return;
+      }
+  
+      const response = await fetch("http://localhost:8000/register", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({ username })
+      });
+  
+      const data = await response.json();
+      alert(data.message);
+    }
+  
+    // 🔑 LOGIN
+    async function login() {
+      const username = document.getElementById("username").value;
+  
+      if (!username) {
+        alert("Enter a username");
+        return;
+      }
+  
+      const response = await fetch("http://localhost:8000/login", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({ username })
+      });
+  
+      const data = await response.json();
+  
+      if (data.message === "Login successful") {
+        currentUser = username;
+        alert("Login successful ✅");
+      } else {
+        alert("User not found ❌");
+      }
+    }
+  
+    // 🔄 LOAD ON START
     window.onload = loadAlerts;
   </script>
 </body>
