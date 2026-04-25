@@ -3,6 +3,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import math
 from passlib.context import CryptContext
+from app.database import engine, Base, SessionLocal
+from app.models import UserDB
+
+
+Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
 
@@ -53,33 +58,51 @@ class SOSRequest(BaseModel):
 
 @app.post("/register")
 def register(user: User):
+    db = SessionLocal()
 
-    if any(u["username"] == user.username for u in users):
+    existing_user = db.query(UserDB).filter(UserDB.username == user.username).first()
+
+    if existing_user:
+        db.close()
         return {"message": "User already exists"}
 
-    users.append({
-        "username": user.username,
-        "password": hash_password(user.password)
-    })
+    new_user = UserDB(
+        username=user.username,
+        password=hash_password(user.password)
+    )
+
+    db.add(new_user)
+    db.commit()
+    db.close()
 
     return {"message": "User created successfully"}
 
+
 @app.post("/login")
 def login(user: User):
+    db = SessionLocal()
 
-    for u in users:
-        if u["username"] == user.username:
-            if verify_password(user.password, u["password"]):
-                return {"message": "Login successful"}
-            else:
-                return {"message": "Wrong password"}
+    db_user = db.query(UserDB).filter(UserDB.username == user.username).first()
 
-    return {"message": "User not found"}
+    if not db_user:
+        db.close()
+        return {"message": "User not found"}
+
+    if not verify_password(user.password, db_user.password):
+        db.close()
+        return {"message": "Wrong password"}
+
+    db.close()
+    return {"message": "Login successful"}
 
 @app.post("/sos")
 def receive_sos(data: SOSRequest):
+    db = SessionLocal()
 
-    if not any(u["username"] == data.username for u in users):
+    db_user = db.query(UserDB).filter(UserDB.username == data.username).first()
+
+    if not db_user:
+        db.close()
         return {"message": "User not authenticated"}
 
     alert = {
