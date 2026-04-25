@@ -156,7 +156,7 @@ async def receive_sos(data: SOSRequest):
     db.add(new_alert)
     db.commit()
 
-    # 🔥 lógica de zonas
+    # 🔥 zonas inteligentes
     count = check_danger_zone(db, data.latitude, data.longitude)
 
     if count >= 3:
@@ -174,7 +174,7 @@ async def receive_sos(data: SOSRequest):
             ))
             db.commit()
 
-    # 🔥 TEMPO REAL (AGORA FUNCIONA)
+    # 🔥 WEBSOCKET
     for connection in connections:
         await connection.send_text(json.dumps({
             "type": "alert",
@@ -183,13 +183,15 @@ async def receive_sos(data: SOSRequest):
             "longitude": data.longitude
         }))
 
+    # 🔥 PUSH (AGORA FUNCIONA)
+    send_push_notification(
+        "🚨 Emergency Alert",
+        f"{data.username} sent an SOS"
+    )
+
     db.close()
     return {"message": "SOS sent successfully"}
 
-    send_push_notification(
-    "🚨 Emergency Alert",
-    f"{data.username} sent an SOS"
-)
 @app.get("/alerts")
 def get_alerts():
     db = SessionLocal()
